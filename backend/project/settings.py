@@ -114,6 +114,7 @@ INSTALLED_APPS = [
     "apps.user",
     "apps.system_setting",
     "apps.cms",
+    "apps.email_phishing_defender",
 
 ]
 
@@ -341,3 +342,31 @@ UNFOLD = unfold_config.get_unfold_settings()
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
 STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY')
 STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET')
+
+
+# ============================================
+# Celery / Redis Configuration
+# ============================================
+CELERY_BROKER_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_BEAT_SCHEDULE = {
+    'poll-all-mailboxes': {
+        'task': 'apps.email_phishing_defender.tasks.poll_all_mailboxes',
+        'schedule': 60.0,
+    },
+    'sync-all-tenants': {
+        'task': 'apps.email_phishing_defender.tasks.sync_all_tenants',
+        'schedule': 3600.0,
+    },
+}
+
+
+# ============================================
+# Microsoft Graph API (Application Permissions)
+# ============================================
+MS_CLIENT_ID = config('MS_CLIENT_ID', default='')
+MS_CLIENT_SECRET = config('MS_CLIENT_SECRET', default='')
