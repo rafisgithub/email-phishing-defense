@@ -213,3 +213,8 @@ export const googleAuth = (accessToken: string) =>
     method: "POST",
     body: JSON.stringify({ access_token: accessToken }),
   });
+
+export const signOut = () =>
+  fetchAPI("/signout/", {
+    method: "POST",
+  });

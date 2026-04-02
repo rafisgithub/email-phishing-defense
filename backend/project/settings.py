@@ -107,6 +107,7 @@ INSTALLED_APPS = [
     "debug_toolbar",
     "import_export",
     "corsheaders",
+    # "django_celery_beat",
     # "channels",
 
     # internal apps
