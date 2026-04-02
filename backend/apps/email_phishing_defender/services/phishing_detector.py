@@ -64,6 +64,34 @@ CORPORATE_INDICATORS = [
     "department", "team", "hr ", "human resources",
 ]
 
+# ── Human-readable explanations ────────────────────────────────────────────
+
+REASON_EXPLANATIONS = {
+    "allowlisted": "This sender's domain is on your allow list and is considered trusted.",
+    "reply_to_mismatch": "The reply-to address differs from the sender address, which is a common phishing tactic to redirect your responses to an attacker-controlled inbox.",
+    "url_text_mismatch": "One or more links display a different URL than where they actually lead. Attackers use this to disguise malicious links as legitimate ones.",
+    "suspicious_domain": "The sender's domain is flagged as a known suspicious or malicious domain.",
+    "url_shortener": "The email contains shortened URLs (e.g. bit.ly, tinyurl). Attackers use URL shorteners to hide the true destination of malicious links.",
+    "raw_ip_link": "The email contains links pointing to raw IP addresses instead of domain names, which is uncommon in legitimate emails and often used to bypass domain-based security filters.",
+    "urgency_keywords": "The email uses urgent or threatening language (e.g. 'action required', 'account suspended') to pressure you into acting quickly without thinking.",
+    "display_name_spoofing": "The sender's display name mimics a high-ranking executive (CEO, CFO, etc.) but the email comes from a free email provider, suggesting impersonation.",
+    "external_sender_vip_target": "This email targets VIP users in your organization from an external free email account, a common pattern in spear-phishing attacks.",
+    "suspicious_attachments": "The email contains potentially dangerous attachment types (.exe, .bat, .docm, etc.) that could contain malware or ransomware.",
+    "freemail_corporate_claim": "The sender claims to represent a company or organization but is using a free email provider (Gmail, Yahoo, etc.), which is a strong indicator of impersonation.",
+    "excessive_exclamation": "The email uses an unusual number of exclamation marks, which is a common trait of spam and phishing emails trying to create a sense of urgency.",
+    "html_form_elements": "The email contains embedded HTML forms or password input fields, which are used to steal credentials directly within the email.",
+    "fake_reply": "The email subject starts with 'Re:' or 'Fwd:' but has no prior conversation history, a trick used to make phishing emails appear like part of an ongoing thread.",
+    "multiple_redirects": "Links in this email contain redirect parameters, which are used to bounce you through multiple URLs before reaching the final malicious destination.",
+    "display_name_email_mismatch": "The sender's display name contains a different email address than the actual sender, a technique used to confuse recipients about the true origin.",
+    "lookalike_domain": "The sender's domain closely resembles a well-known brand (e.g. 'micros0ft.com' instead of 'microsoft.com'). This is called typosquatting and is a common phishing technique.",
+    "empty_body_with_links": "The email has very little text content but contains links, which is a common pattern in phishing emails that rely solely on tricking you into clicking.",
+    "encoded_urls": "The email contains heavily encoded or obfuscated URLs, which are used to bypass security filters and hide the true destination.",
+    "excessive_recipients": "The email was sent to an unusually large number of recipients, which is a hallmark of mass phishing or spam campaigns.",
+    "credential_harvesting": "The email mentions sensitive information like passwords, credit cards, or SSNs, suggesting it may be attempting to harvest your credentials.",
+    "brand_impersonation": "The email references a well-known brand (e.g. Microsoft, PayPal) but is sent from an unrelated domain, indicating a potential impersonation attack.",
+    "blocklist_match": "The sender's domain is on your block list and has been flagged as untrusted.",
+}
+
 
 # ── Engine ──────────────────────────────────────────────────────────────────
 
@@ -110,6 +138,7 @@ class PhishingDetector:
                 "score": 0,
                 "verdict": "safe",
                 "reason_codes": ["allowlisted"],
+                "explanations": [REASON_EXPLANATIONS["allowlisted"]],
                 "evidence": {"allowlisted_domain": sender_domain},
                 "rules_applied": [],
             }
@@ -139,10 +168,17 @@ class PhishingDetector:
         else:
             verdict = "safe"
 
+        explanations = [
+            REASON_EXPLANATIONS[code]
+            for code in reason_codes
+            if code in REASON_EXPLANATIONS
+        ]
+
         return {
             "score": score,
             "verdict": verdict,
             "reason_codes": reason_codes,
+            "explanations": explanations,
             "evidence": evidence,
             "rules_applied": rules_applied,
         }

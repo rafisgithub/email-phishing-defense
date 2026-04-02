@@ -152,6 +152,10 @@ class Detection(models.Model):
     reason_codes = models.JSONField(default=list, blank=True)
     evidence = models.JSONField(default=dict, blank=True)
     rules_applied = models.JSONField(default=list, blank=True)
+    llm_explanation = models.JSONField(
+        default=dict, blank=True,
+        help_text="LLM-generated explanation: summary, reasons, risk_level, user_advice",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

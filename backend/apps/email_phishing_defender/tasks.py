@@ -216,6 +216,7 @@ def score_email(self, message_id):
         message.save(update_fields=["is_processed"])
 
         apply_action.delay(str(detection.id))
+        generate_llm_explanation.delay(str(detection.id))
         logger.info("Scored message %s: %s (%s)", message_id, result["verdict"], result["score"])
     except Exception as exc:
         logger.error("score_email failed for %s: %s", message_id, exc)
@@ -247,4 +248,25 @@ def apply_action(self, detection_id):
         )
     except Exception as exc:
         logger.error("apply_action failed for %s: %s", detection_id, exc)
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+def generate_llm_explanation(self, detection_id):
+    """Generate a human-readable LLM explanation for a detection."""
+    from apps.email_phishing_defender.models import Detection
+    from apps.email_phishing_defender.services.llm_explainer import generate_explanation
+
+    try:
+        detection = Detection.objects.select_related("message").get(id=detection_id)
+
+        if detection.llm_explanation:
+            return
+
+        explanation = generate_explanation(detection)
+        detection.llm_explanation = explanation
+        detection.save(update_fields=["llm_explanation", "updated_at"])
+        logger.info("LLM explanation generated for detection %s", detection_id)
+    except Exception as exc:
+        logger.error("generate_llm_explanation failed for %s: %s", detection_id, exc)
         raise self.retry(exc=exc)

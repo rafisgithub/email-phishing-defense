@@ -73,6 +73,7 @@ export interface DetectionSummary {
   score: number;
   verdict: "safe" | "suspicious" | "phishing";
   reason_codes: string[];
+  explanations: string[];
   sender_email: string;
   sender_name: string;
   subject: string;
@@ -99,8 +100,15 @@ export interface DetectionDetail {
   score: number;
   verdict: "safe" | "suspicious" | "phishing";
   reason_codes: string[];
+  explanations: string[];
   evidence: Record<string, unknown>;
   rules_applied: string[];
+  llm_explanation: {
+    summary: string;
+    reasons: string[];
+    risk_level: "low" | "medium" | "high";
+    user_advice: string[];
+  } | null;
   message: {
     id: string;
     sender_email: string;

@@ -9,6 +9,7 @@ from .models import (
     Mailbox,
     Tenant,
 )
+from .services.phishing_detector import REASON_EXPLANATIONS
 
 
 # ── Tenant ──────────────────────────────────────────────────────────────────
@@ -72,13 +73,21 @@ class DetectionListSerializer(serializers.ModelSerializer):
     subject = serializers.CharField(source="message.subject")
     mailbox_email = serializers.CharField(source="message.mailbox.email")
     received_at = serializers.DateTimeField(source="message.received_at")
+    explanations = serializers.SerializerMethodField()
 
     class Meta:
         model = Detection
         fields = [
-            "id", "score", "verdict", "reason_codes",
+            "id", "score", "verdict", "reason_codes", "explanations",
             "sender_email", "sender_name", "subject",
             "mailbox_email", "received_at", "created_at",
+        ]
+
+    def get_explanations(self, obj):
+        return [
+            REASON_EXPLANATIONS[code]
+            for code in (obj.reason_codes or [])
+            if code in REASON_EXPLANATIONS
         ]
 
 
@@ -93,13 +102,21 @@ class DetectionDetailSerializer(serializers.ModelSerializer):
     links = serializers.SerializerMethodField()
     actions = ActionSerializer(many=True, read_only=True)
     feedbacks = serializers.SerializerMethodField()
+    explanations = serializers.SerializerMethodField()
 
     class Meta:
         model = Detection
         fields = [
-            "id", "score", "verdict", "reason_codes", "evidence",
-            "rules_applied", "message", "links", "actions",
-            "feedbacks", "created_at",
+            "id", "score", "verdict", "reason_codes", "explanations",
+            "evidence", "rules_applied", "llm_explanation",
+            "message", "links", "actions", "feedbacks", "created_at",
+        ]
+
+    def get_explanations(self, obj):
+        return [
+            REASON_EXPLANATIONS[code]
+            for code in (obj.reason_codes or [])
+            if code in REASON_EXPLANATIONS
         ]
 
     def get_message(self, obj):

@@ -89,17 +89,82 @@ export default function DetectionDetailPage() {
         />
       </div>
 
+      {/* AI Explanation */}
+      {data.llm_explanation && data.llm_explanation.summary && (
+        <div className={`rounded-xl border p-6 ${
+          data.llm_explanation.risk_level === "high"
+            ? "bg-red-50 border-red-200"
+            : data.llm_explanation.risk_level === "medium"
+            ? "bg-yellow-50 border-yellow-200"
+            : "bg-green-50 border-green-200"
+        }`}>
+          <div className="flex items-center gap-2 mb-3">
+            <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+            </svg>
+            <h2 className="text-sm font-semibold text-gray-700">AI Analysis</h2>
+            <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${
+              data.llm_explanation.risk_level === "high"
+                ? "bg-red-200 text-red-800"
+                : data.llm_explanation.risk_level === "medium"
+                ? "bg-yellow-200 text-yellow-800"
+                : "bg-green-200 text-green-800"
+            }`}>
+              {data.llm_explanation.risk_level} risk
+            </span>
+          </div>
+
+          <p className="text-sm text-gray-800 font-medium mb-3">{data.llm_explanation.summary}</p>
+
+          {data.llm_explanation.reasons.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-1.5">Why this was flagged</p>
+              <ul className="space-y-1">
+                {data.llm_explanation.reasons.map((reason, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                    {reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {data.llm_explanation.user_advice.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-1.5">Recommended actions</p>
+              <ul className="space-y-1">
+                {data.llm_explanation.user_advice.map((advice, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+                    {advice}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Reason Codes */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Detection Reasons</h2>
         {data.reason_codes.length === 0 ? (
           <p className="text-sm text-gray-400">No issues detected.</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {data.reason_codes.map((code) => (
-              <span key={code} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">
-                {code.replace(/_/g, " ")}
-              </span>
+          <div className="space-y-3">
+            {data.reason_codes.map((code, i) => (
+              <div key={code} className="flex items-start gap-3">
+                <span className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-xs font-bold">
+                  {i + 1}
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{code.replace(/_/g, " ")}</p>
+                  {data.explanations?.[i] && (
+                    <p className="text-sm text-gray-500 mt-0.5">{data.explanations[i]}</p>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         )}

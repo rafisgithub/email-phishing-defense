@@ -370,3 +370,9 @@ CELERY_BEAT_SCHEDULE = {
 # ============================================
 MS_CLIENT_ID = config('MS_CLIENT_ID', default='')
 MS_CLIENT_SECRET = config('MS_CLIENT_SECRET', default='')
+
+# ============================================
+# OpenAI / LLM Explanation
+# ============================================
+OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
+LLM_MODEL = config('LLM_MODEL', default='gpt-4o-mini')
