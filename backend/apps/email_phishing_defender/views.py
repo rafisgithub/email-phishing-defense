@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
+from apps.user.authentication import CookieJWTAuthentication
 from apps.utils.helpers import error, success
 
 from .models import (
@@ -40,6 +41,7 @@ class ConnectM365View(APIView):
     """Generate the Microsoft 365 admin-consent URL."""
 
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
 
     def post(self, request):
         serializer = ConnectM365Serializer(data=request.data)
@@ -64,6 +66,7 @@ class M365CallbackView(APIView):
     """Handle the Microsoft 365 admin-consent callback."""
 
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
 
     def post(self, request):
         serializer = M365CallbackSerializer(data=request.data)
@@ -97,6 +100,7 @@ class M365CallbackView(APIView):
 
 class MailboxListView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
 
     def get(self, request):
         tenants = Tenant.objects.filter(user=request.user, is_active=True)
@@ -114,6 +118,7 @@ class MailboxListView(APIView):
 
 class DetectionListView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
 
     def get(self, request):
         tenants = Tenant.objects.filter(user=request.user, is_active=True)
@@ -159,6 +164,7 @@ class DetectionListView(APIView):
 
 class DetectionDetailView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
 
     def get(self, request, pk):
         tenants = Tenant.objects.filter(user=request.user, is_active=True)
@@ -179,6 +185,7 @@ class DetectionDetailView(APIView):
 
 class AllowListView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
 
     def get(self, request):
         tenants = Tenant.objects.filter(user=request.user, is_active=True)
@@ -213,6 +220,7 @@ class AllowListView(APIView):
 
 class BlockListView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
 
     def get(self, request):
         tenants = Tenant.objects.filter(user=request.user, is_active=True)
@@ -250,6 +258,7 @@ class BlockListView(APIView):
 
 class FeedbackReportView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
 
     def post(self, request):
         serializer = FeedbackCreateSerializer(data=request.data, context={"request": request})
@@ -267,6 +276,7 @@ class FeedbackReportView(APIView):
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
 
     def get(self, request):
         tenants = Tenant.objects.filter(user=request.user, is_active=True)

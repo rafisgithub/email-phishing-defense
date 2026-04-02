@@ -191,3 +191,17 @@ export const m365Callback = (tenantId: string, adminConsent: boolean) =>
       admin_consent: adminConsent,
     }),
   });
+
+// ── Auth ─────────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  role: string;
+}
+
+export const googleAuth = (accessToken: string) =>
+  fetchAPI<{ user: AuthUser }>("/google-auth/", {
+    method: "POST",
+    body: JSON.stringify({ access_token: accessToken }),
+  });

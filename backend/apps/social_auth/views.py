@@ -47,7 +47,8 @@ class GoogleAuthView(APIView):
             random_password = secrets.token_urlsafe(32)
             user = User.objects.create_user(
                 email=email,
-                password=random_password
+                password=random_password,
+                term_and_condition_accepted=True
             )
             if picture:
                 image_response = requests.get(picture)
@@ -58,8 +59,7 @@ class GoogleAuthView(APIView):
 
             UserProfile.objects.create(
                 user=user,
-                first_name=given_name,
-                last_name=family_name
+    
             )
         
         # Get user agent hash for token binding (security feature)
