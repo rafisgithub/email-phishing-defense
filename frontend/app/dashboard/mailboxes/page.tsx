@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMailboxes, type MailboxItem } from "@/lib/api";
+import { getMailboxes, getConnectionStatus, type MailboxItem, type ConnectionStatus } from "@/lib/api";
+import Link from "next/link";
 
 export default function MailboxesPage() {
   const [mailboxes, setMailboxes] = useState<MailboxItem[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [connStatus, setConnStatus] = useState<ConnectionStatus | null>(null);
 
   const load = (q?: string) => {
     setLoading(true);
@@ -19,6 +21,9 @@ export default function MailboxesPage() {
 
   useEffect(() => {
     load();
+    getConnectionStatus()
+      .then((res) => setConnStatus(res.data))
+      .catch(() => {});
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -28,6 +33,40 @@ export default function MailboxesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Connection Status Banner */}
+      {connStatus !== null && (
+        <div
+          className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm ${
+            connStatus.connected
+              ? "bg-green-50 border border-green-200 text-green-800"
+              : connStatus.tenant_count > 0
+              ? "bg-red-50 border border-red-200 text-red-800"
+              : "bg-yellow-50 border border-yellow-200 text-yellow-800"
+          }`}
+        >
+          <span
+            className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+              connStatus.connected ? "bg-green-500 animate-pulse" : connStatus.tenant_count > 0 ? "bg-red-400" : "bg-yellow-400"
+            }`}
+          />
+          <span className="flex-1">
+            {connStatus.connected
+              ? `Outlook connected — ${connStatus.tenant_count} tenant${connStatus.tenant_count !== 1 ? "s" : ""} active`
+              : connStatus.tenant_count > 0
+              ? "Outlook connection lost. Token may have expired."
+              : "No Outlook account connected."}
+          </span>
+          {!connStatus.connected && (
+            <Link
+              href="/dashboard/settings"
+              className="flex-shrink-0 px-3 py-1 rounded-md bg-white border text-xs font-medium hover:bg-gray-50"
+            >
+              {connStatus.tenant_count > 0 ? "Reconnect" : "Connect Now"}
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Mailboxes</h1>
         <form onSubmit={handleSearch} className="flex gap-2">

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useState } from "react";
-import { signOut } from "@/lib/api";
+import { ReactNode, useEffect, useState } from "react";
+import { signOut, getConnectionStatus, type ConnectionStatus } from "@/lib/api";
 
 const NAV = [
   { label: "Dashboard", href: "/dashboard", icon: ChartIcon },
@@ -16,6 +16,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const [connStatus, setConnStatus] = useState<ConnectionStatus | null>(null);
+
+  useEffect(() => {
+    const fetchStatus = () => {
+      getConnectionStatus()
+        .then((res) => setConnStatus(res.data))
+        .catch(() => {});
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -63,7 +75,57 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="px-3 py-4 border-t border-gray-200">
+        <div className="px-3 py-4 border-t border-gray-200 space-y-2">
+          {/* Outlook Connection Status */}
+          <Link
+            href="/dashboard/settings"
+            className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              connStatus === null
+                ? "text-gray-400"
+                : connStatus.connected
+                ? "text-green-700 bg-green-50 hover:bg-green-100"
+                : connStatus.error
+                ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
+                : connStatus.tenant_count > 0
+                ? "text-red-700 bg-red-50 hover:bg-red-100"
+                : "text-gray-500 bg-gray-50 hover:bg-gray-100"
+            }`}
+          >
+            <div className="relative">
+              <OutlookIcon className="w-5 h-5" />
+              <span
+                className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                  connStatus === null
+                    ? "bg-gray-300"
+                    : connStatus.connected
+                    ? "bg-green-500"
+                    : connStatus.error
+                    ? "bg-amber-400"
+                    : "bg-red-400"
+                }`}
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="block truncate">
+                {connStatus === null
+                  ? "Checking…"
+                  : connStatus.connected
+                  ? "Outlook Connected"
+                  : connStatus.error
+                  ? "Permission Issue"
+                  : connStatus.tenant_count > 0
+                  ? "Outlook Disconnected"
+                  : "Outlook Not Connected"}
+              </span>
+              {connStatus && connStatus.tenant_count > 0 && (
+                <span className="block text-xs opacity-75 truncate">
+                  {connStatus.tenant_count} tenant{connStatus.tenant_count !== 1 ? "s" : ""}
+                  {connStatus.error && !connStatus.connected ? " · Fix in Settings" : ""}
+                </span>
+              )}
+            </div>
+          </Link>
+
           <button
             onClick={handleSignOut}
             disabled={signingOut}
@@ -82,7 +144,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="w-7 h-7 rounded-md bg-indigo-600 flex items-center justify-center">
             <ShieldIcon className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-gray-900">PhishGuard</span>
+          <span className="font-bold text-gray-900 flex-1">PhishGuard</span>
+          {/* Mobile connection status dot */}
+          <Link href="/dashboard/settings" className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium"
+            style={{ background: connStatus?.connected ? "#dcfce7" : connStatus === null ? "#f3f4f6" : connStatus?.error ? "#fffbeb" : connStatus.tenant_count > 0 ? "#fef2f2" : "#f3f4f6" }}>
+            <span className={`w-2 h-2 rounded-full ${connStatus === null ? "bg-gray-300" : connStatus.connected ? "bg-green-500" : connStatus.error ? "bg-amber-400" : connStatus.tenant_count > 0 ? "bg-red-400" : "bg-gray-300"}`} />
+            <span className={connStatus?.connected ? "text-green-700" : connStatus?.error ? "text-amber-700" : connStatus?.tenant_count ? "text-red-700" : "text-gray-500"}>
+              {connStatus === null ? "…" : connStatus.connected ? "Connected" : connStatus.error ? "Fix Perms" : connStatus.tenant_count > 0 ? "Disconnected" : "Not linked"}
+            </span>
+          </Link>
         </header>
 
         {/* Mobile nav */}
@@ -153,6 +223,14 @@ function LogOutIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+    </svg>
+  );
+}
+
+function OutlookIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M24 7.387v10.478c0 .23-.08.424-.238.576-.158.154-.352.23-.58.23h-8.547v-6.959l1.6 1.229c.102.08.221.119.357.119s.255-.04.357-.12L24 7.387zm-.238-1.186c.08.064.156.14.203.238H15.41l5.59 4.478 3-2.4V6.2zm-9.127 12.47h8.73c.226 0 .42-.077.578-.23.16-.153.238-.348.238-.578v-.98l-3.6-2.76-1.57 1.26c-.1.08-.22.12-.36.12s-.26-.04-.36-.12l-1.57-1.26-2.086 1.6v2.948zM14.635 3.39L1.997 5.26v13.476l12.638 1.876V3.39zM8.39 16.078c-.63 0-1.18-.175-1.648-.526-.467-.35-.83-.83-1.087-1.44-.258-.608-.387-1.282-.387-2.022 0-.77.133-1.467.4-2.093.267-.627.638-1.12 1.114-1.48.476-.36 1.015-.54 1.616-.54.616 0 1.157.176 1.623.527.466.352.828.834 1.086 1.447.258.613.387 1.302.387 2.068 0 .752-.13 1.432-.39 2.04-.26.608-.628 1.088-1.103 1.44-.476.353-1.01.53-1.603.53l-.008.049zm.038-1.588c.352 0 .65-.275.895-.826.244-.55.367-1.28.367-2.19 0-.895-.12-1.612-.36-2.15-.24-.54-.542-.81-.903-.81-.37 0-.672.272-.908.818-.236.546-.354 1.27-.354 2.174 0 .92.118 1.652.354 2.198.236.524.54.786.91.786z" />
     </svg>
   );
 }

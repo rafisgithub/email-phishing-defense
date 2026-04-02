@@ -31,7 +31,138 @@ from .serializers import (
     M365CallbackSerializer,
     TenantSerializer,
 )
+from .services.microsoft_graph import MicrosoftGraphService
 from .tasks import sync_mailboxes
+
+
+# ── Tenant / Connection Status ──────────────────────────────────────────────
+
+
+class TenantListView(APIView):
+    """List all tenants for the current user with connection health."""
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
+
+    def get(self, request):
+        tenants = Tenant.objects.filter(user=request.user)
+        data = []
+        for tenant in tenants:
+            info = TenantSerializer(tenant).data
+            graph = MicrosoftGraphService(tenant)
+            health = graph.check_health()
+
+            # Auto-fill org name if missing
+            if health["org_name"] and not tenant.name:
+                tenant.name = health["org_name"]
+                tenant.save(update_fields=["name"])
+                info["name"] = health["org_name"]
+
+            info["is_connected"] = health["permissions_ok"]
+            info["token_ok"] = health["token_ok"]
+            info["api_ok"] = health["api_ok"]
+            info["permissions_ok"] = health["permissions_ok"]
+            info["error"] = health["error"]
+            info["missing_permissions"] = health["missing_permissions"]
+            info["token_expires_at"] = (
+                tenant.token_expires_at.isoformat() if tenant.token_expires_at else None
+            )
+            data.append(info)
+        return success(data=data, message="Tenants retrieved.")
+
+
+class TenantStatusView(APIView):
+    """Quick connection-health check (for polling)."""
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
+
+    def get(self, request):
+        tenants = Tenant.objects.filter(user=request.user, is_active=True)
+        if not tenants.exists():
+            return success(
+                data={"connected": False, "tenant_count": 0, "tenants": [], "error": ""},
+                message="No tenants connected.",
+            )
+
+        tenant_statuses = []
+        any_connected = False
+        global_error = ""
+        for tenant in tenants:
+            graph = MicrosoftGraphService(tenant)
+            health = graph.check_health()
+
+            if health["org_name"] and not tenant.name:
+                tenant.name = health["org_name"]
+                tenant.save(update_fields=["name"])
+
+            if health["permissions_ok"]:
+                any_connected = True
+
+            if health["error"] and not global_error:
+                global_error = health["error"]
+
+            tenant_statuses.append({
+                "id": str(tenant.id),
+                "name": tenant.name or tenant.tenant_id,
+                "connected": health["permissions_ok"],
+                "token_ok": health["token_ok"],
+                "error": health["error"],
+                "missing_permissions": health["missing_permissions"],
+                "last_synced_at": (
+                    tenant.last_synced_at.isoformat() if tenant.last_synced_at else None
+                ),
+            })
+
+        return success(
+            data={
+                "connected": any_connected,
+                "tenant_count": tenants.count(),
+                "tenants": tenant_statuses,
+                "error": global_error,
+            },
+            message="Connection status retrieved.",
+        )
+
+
+class TenantResyncView(APIView):
+    """Force token refresh and re-sync mailboxes."""
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
+
+    def post(self, request, tenant_id):
+        try:
+            tenant = Tenant.objects.get(id=tenant_id, user=request.user)
+        except Tenant.DoesNotExist:
+            return error(message="Tenant not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+        # Force refresh token
+        tenant._access_token = ""
+        tenant.token_expires_at = None
+        tenant.save(update_fields=["_access_token", "token_expires_at"])
+
+        graph = MicrosoftGraphService(tenant)
+        health = graph.check_health()
+
+        if not health["permissions_ok"]:
+            return error(
+                message=health["error"] or "Cannot connect to Microsoft Graph API.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Update org name
+        if health["org_name"] and not tenant.name:
+            tenant.name = health["org_name"]
+            tenant.save(update_fields=["name"])
+
+        # Trigger mailbox sync
+        sync_mailboxes.delay(str(tenant.id))
+
+        return success(
+            data=TenantSerializer(tenant).data,
+            message="Token refreshed. Mailbox sync started.",
+        )
 
 
 # ── M365 Connection ─────────────────────────────────────────────────────────

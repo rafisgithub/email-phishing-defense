@@ -200,6 +200,51 @@ export const m365Callback = (tenantId: string, adminConsent: boolean) =>
     }),
   });
 
+// ── Tenants / Connection Status ──────────────────────────────────────────
+
+export interface TenantItem {
+  id: string;
+  tenant_id: string;
+  name: string;
+  is_active: boolean;
+  last_synced_at: string | null;
+  mailbox_count: number;
+  created_at: string;
+  is_connected: boolean;
+  token_ok: boolean;
+  api_ok: boolean;
+  permissions_ok: boolean;
+  error: string;
+  missing_permissions: string[];
+  token_expires_at: string | null;
+}
+
+export interface ConnectionStatus {
+  connected: boolean;
+  tenant_count: number;
+  error: string;
+  tenants: {
+    id: string;
+    name: string;
+    connected: boolean;
+    token_ok: boolean;
+    error: string;
+    missing_permissions: string[];
+    last_synced_at: string | null;
+  }[];
+}
+
+export const getTenants = () =>
+  fetchAPI<TenantItem[]>("/phishing/tenants/");
+
+export const getConnectionStatus = () =>
+  fetchAPI<ConnectionStatus>("/phishing/tenants/status/");
+
+export const resyncTenant = (tenantId: string) =>
+  fetchAPI("/phishing/tenants/" + tenantId + "/resync/", {
+    method: "POST",
+  });
+
 // ── Auth ─────────────────────────────────────────────────────────────────
 
 export interface AuthUser {

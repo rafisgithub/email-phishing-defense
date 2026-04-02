@@ -67,6 +67,83 @@ class MicrosoftGraphService:
             "Content-Type": "application/json",
         }
 
+    # ── Health check ──────────────────────────────────────────────────
+
+    def check_health(self):
+        """Test actual Graph API access. Returns dict with status details."""
+        result = {
+            "token_ok": False,
+            "api_ok": False,
+            "permissions_ok": False,
+            "org_name": "",
+            "error": "",
+            "missing_permissions": [],
+        }
+
+        # 1. Can we get a token?
+        try:
+            self.get_access_token()
+            result["token_ok"] = True
+        except Exception as e:
+            result["error"] = f"Token acquisition failed: {e}"
+            return result
+
+        # 2. Can we call the API? (use /organization as a lightweight test)
+        headers = self._headers()
+        try:
+            resp = requests.get(
+                f"{GRAPH_BASE_URL}/organization?$select=id,displayName",
+                headers=headers, timeout=15,
+            )
+            if resp.status_code == 200:
+                orgs = resp.json().get("value", [])
+                if orgs:
+                    result["org_name"] = orgs[0].get("displayName", "")
+                result["api_ok"] = True
+            elif resp.status_code == 403:
+                result["missing_permissions"].append("Organization.Read.All")
+            else:
+                result["error"] = f"Organization endpoint: HTTP {resp.status_code}"
+        except requests.RequestException as e:
+            result["error"] = f"Organization endpoint: {e}"
+
+        # 3. Can we list users?
+        try:
+            resp = requests.get(
+                f"{GRAPH_BASE_URL}/users?$select=id&$top=1",
+                headers=headers, timeout=15,
+            )
+            if resp.status_code == 200:
+                result["permissions_ok"] = True
+                result["api_ok"] = True
+            elif resp.status_code == 403:
+                result["missing_permissions"].append("User.Read.All")
+            else:
+                result["error"] = f"Users endpoint: HTTP {resp.status_code}"
+        except requests.RequestException as e:
+            result["error"] = f"Users endpoint: {e}"
+
+        if result["missing_permissions"]:
+            result["error"] = (
+                "Missing API permissions: "
+                + ", ".join(result["missing_permissions"])
+                + ". Grant these in Azure Portal → App registrations → API permissions, then click 'Grant admin consent'."
+            )
+
+        return result
+
+    def fetch_org_name(self):
+        """Fetch the organization display name."""
+        resp = requests.get(
+            f"{GRAPH_BASE_URL}/organization?$select=id,displayName",
+            headers=self._headers(), timeout=15,
+        )
+        if resp.status_code == 200:
+            orgs = resp.json().get("value", [])
+            if orgs:
+                return orgs[0].get("displayName", "")
+        return ""
+
     # ── Users / Mailboxes ───────────────────────────────────────────────
 
     def fetch_users(self):

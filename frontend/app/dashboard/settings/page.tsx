@@ -7,26 +7,41 @@ import {
   addToAllowList,
   addToBlockList,
   connectM365,
+  getTenants,
+  resyncTenant,
   type ListEntry,
+  type TenantItem,
 } from "@/lib/api";
 
 export default function SettingsPage() {
   const [allowList, setAllowList] = useState<ListEntry[]>([]);
   const [blockList, setBlockList] = useState<ListEntry[]>([]);
+  const [tenants, setTenants] = useState<TenantItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [newAllow, setNewAllow] = useState("");
   const [newBlock, setNewBlock] = useState("");
   const [msg, setMsg] = useState("");
 
+  const loadTenants = () => {
+    getTenants()
+      .then((res) => setTenants(res.data))
+      .catch(() => {});
+  };
+
   useEffect(() => {
-    Promise.all([getAllowList(), getBlockList()])
-      .then(([a, b]) => {
+    Promise.all([getAllowList(), getBlockList(), getTenants()])
+      .then(([a, b, t]) => {
         setAllowList(a.data);
         setBlockList(b.data);
+        setTenants(t.data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    // Poll connection status every 30 seconds
+    const interval = setInterval(loadTenants, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleAddAllow = async (e: React.FormEvent) => {
@@ -65,6 +80,17 @@ export default function SettingsPage() {
     }
   };
 
+  const handleResync = async (tenantId: string) => {
+    setMsg("");
+    try {
+      const res = await resyncTenant(tenantId);
+      setMsg(res.message || "Sync started.");
+      loadTenants();
+    } catch (err: unknown) {
+      setMsg(err instanceof Error ? err.message : "Resync failed");
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-3xl">
       <h1 className="text-2xl font-bold">Settings</h1>
@@ -82,6 +108,85 @@ export default function SettingsPage() {
         <p className="text-sm text-gray-500 mb-4">
           Connect your Microsoft 365 tenant to start monitoring mailboxes for phishing threats.
         </p>
+
+        {/* Connected Tenants */}
+        {tenants.length > 0 && (
+          <div className="mb-4 space-y-3">
+            {tenants.map((t) => (
+              <div
+                key={t.id}
+                className={`rounded-lg border overflow-hidden ${
+                  t.is_connected
+                    ? "bg-green-50 border-green-200"
+                    : t.token_ok
+                    ? "bg-amber-50 border-amber-200"
+                    : "bg-red-50 border-red-200"
+                }`}
+              >
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                        t.is_connected ? "bg-green-500 animate-pulse" : t.token_ok ? "bg-amber-400" : "bg-red-400"
+                      }`}
+                    />
+                    <div>
+                      <p className={`text-sm font-medium ${t.is_connected ? "text-green-800" : t.token_ok ? "text-amber-800" : "text-red-800"}`}>
+                        {t.name || t.tenant_id}
+                      </p>
+                      <p className={`text-xs ${t.is_connected ? "text-green-600" : t.token_ok ? "text-amber-600" : "text-red-600"}`}>
+                        {t.is_connected ? "Connected" : t.token_ok ? "Permission Issue" : "Disconnected"} · {t.mailbox_count} mailbox{t.mailbox_count !== 1 ? "es" : ""}
+                        {t.last_synced_at && (
+                          <> · Last synced {new Date(t.last_synced_at).toLocaleString()}</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleResync(t.id)}
+                      className="px-3 py-1 rounded-md bg-white border border-gray-300 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Re-sync
+                    </button>
+                    <span
+                      className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${
+                        t.is_connected
+                          ? "bg-green-100 text-green-700"
+                          : t.token_ok
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {t.is_connected ? "Active" : t.token_ok ? "Limited" : "Expired"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Error / permission details */}
+                {t.error && (
+                  <div className={`px-4 py-2.5 border-t text-xs ${t.token_ok ? "border-amber-200 bg-amber-100/50 text-amber-800" : "border-red-200 bg-red-100/50 text-red-800"}`}>
+                    <p className="font-medium mb-1">⚠ {t.missing_permissions.length > 0 ? "Missing API Permissions" : "Connection Error"}</p>
+                    <p>{t.error}</p>
+                    {t.missing_permissions.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <p className="font-medium">To fix this:</p>
+                        <ol className="list-decimal list-inside space-y-0.5 text-[11px]">
+                          <li>Go to <strong>Azure Portal</strong> → Microsoft Entra ID → App registrations</li>
+                          <li>Select your app → <strong>API permissions</strong></li>
+                          <li>Add <strong>Microsoft Graph → Application permissions</strong>: {t.missing_permissions.join(", ")}, Mail.Read, Mail.ReadWrite</li>
+                          <li>Click <strong>&quot;Grant admin consent&quot;</strong></li>
+                          <li>Come back here and click <strong>Re-sync</strong></li>
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <button
           onClick={handleConnectM365}
           className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 inline-flex items-center gap-2"
@@ -92,7 +197,7 @@ export default function SettingsPage() {
             <rect x="1" y="12" width="10" height="10" fill="#00A4EF" />
             <rect x="12" y="12" width="10" height="10" fill="#FFB900" />
           </svg>
-          Connect Microsoft 365
+          {tenants.length > 0 ? "Connect Another Tenant" : "Connect Microsoft 365"}
         </button>
       </div>
 

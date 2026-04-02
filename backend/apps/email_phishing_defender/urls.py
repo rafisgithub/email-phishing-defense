@@ -10,6 +10,9 @@ from .views import (
     FeedbackReportView,
     M365CallbackView,
     MailboxListView,
+    TenantListView,
+    TenantResyncView,
+    TenantStatusView,
     TestAnalyzeEmailView,
 )
 
@@ -17,6 +20,11 @@ urlpatterns = [
     # M365 connection
     path("phishing/connect/m365/", ConnectM365View.as_view(), name="connect-m365"),
     path("phishing/connect/m365/callback/", M365CallbackView.as_view(), name="m365-callback"),
+
+    # Tenants / Connection status
+    path("phishing/tenants/", TenantListView.as_view(), name="tenant-list"),
+    path("phishing/tenants/status/", TenantStatusView.as_view(), name="tenant-status"),
+    path("phishing/tenants/<uuid:tenant_id>/resync/", TenantResyncView.as_view(), name="tenant-resync"),
 
     # Mailboxes
     path("phishing/mailboxes/", MailboxListView.as_view(), name="mailbox-list"),
