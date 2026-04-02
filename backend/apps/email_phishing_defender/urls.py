@@ -10,6 +10,7 @@ from .views import (
     FeedbackReportView,
     M365CallbackView,
     MailboxListView,
+    TestAnalyzeEmailView,
 )
 
 urlpatterns = [
@@ -33,4 +34,7 @@ urlpatterns = [
 
     # Dashboard
     path("phishing/dashboard/", DashboardView.as_view(), name="phishing-dashboard"),
+
+    # Test / Demo (Postman)
+    path("phishing/test/analyze/", TestAnalyzeEmailView.as_view(), name="test-analyze"),
 ]

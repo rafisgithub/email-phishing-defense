@@ -334,3 +334,96 @@ class DashboardView(APIView):
             },
             message="Dashboard data retrieved.",
         )
+
+
+# ── Test / Demo ─────────────────────────────────────────────────────────────
+
+
+class TestAnalyzeEmailView(APIView):
+    """
+    POST an email payload and get the detection result back instantly.
+    For Postman / development testing only.
+    """
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
+
+    def post(self, request):
+        from .services.phishing_detector import PhishingDetector
+        from .services.llm_explainer import generate_explanation, _fallback_explanation
+
+        data = request.data
+        required = ["sender_email", "subject", "body_text"]
+        missing = [f for f in required if not data.get(f)]
+        if missing:
+            return error(
+                message=f"Missing required fields: {', '.join(missing)}",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Build email_data for the detector
+        email_data = {
+            "sender_email": data.get("sender_email", ""),
+            "sender_name": data.get("sender_name", ""),
+            "reply_to": data.get("reply_to", ""),
+            "subject": data.get("subject", ""),
+            "body_text": data.get("body_text", ""),
+            "body_html": data.get("body_html", ""),
+            "extracted_links": data.get("extracted_links", []),
+            "attachments_meta": data.get("attachments_meta", []),
+            "headers": data.get("headers", {}),
+            "to_recipients": data.get("to_recipients", []),
+            "cc_recipients": data.get("cc_recipients", []),
+        }
+
+        # Load allow/block lists for this user's tenants
+        tenants = Tenant.objects.filter(user=request.user, is_active=True)
+        allow = list(AllowList.objects.filter(tenant__in=tenants).values_list("domain", flat=True))
+        block = list(BlockList.objects.filter(tenant__in=tenants).values_list("domain", flat=True))
+        vips = list(
+            Mailbox.objects.filter(tenant__in=tenants, is_vip=True).values_list("email", flat=True)
+        )
+
+        # Run detection
+        detector = PhishingDetector(allow_list=allow, block_list=block, vip_emails=vips)
+        result = detector.analyze(email_data)
+
+        # Build a mock detection object for the LLM explainer
+        class _MockDetection:
+            pass
+
+        mock_det = _MockDetection()
+        mock_det.verdict = result["verdict"]
+        mock_det.score = result["score"]
+        mock_det.reason_codes = result["reason_codes"]
+        mock_det.evidence = result["evidence"]
+
+        # Build a mock message
+        class _MockMessage:
+            pass
+
+        mock_msg = _MockMessage()
+        mock_msg.subject = email_data["subject"]
+        mock_msg.body_text = email_data["body_text"]
+        mock_msg.sender_email = email_data["sender_email"]
+        mock_msg.reply_to = email_data["reply_to"]
+        mock_det.message = mock_msg
+
+        # Generate LLM explanation (falls back to static if no API key)
+        try:
+            llm_explanation = generate_explanation(mock_det)
+        except Exception:
+            llm_explanation = _fallback_explanation(mock_det)
+
+        return success(
+            data={
+                "score": result["score"],
+                "verdict": result["verdict"],
+                "reason_codes": result["reason_codes"],
+                "explanations": result["explanations"],
+                "evidence": result["evidence"],
+                "rules_applied": result["rules_applied"],
+                "llm_explanation": llm_explanation,
+            },
+            message=f"Email analyzed: {result['verdict']}.",
+        )
